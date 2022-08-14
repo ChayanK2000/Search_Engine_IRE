@@ -4,6 +4,36 @@
 import os
 import xml.sax
 import time
+from nltk.corpus import stopwords
+import Stemmer
+
+class TextCleaning():
+    # def __init__(self):
+
+
+
+    def preprocess(self,text):
+        '''
+        1. check for ref links separately
+        2. remove everything inside braces
+        2. for extra step: dont rmeove all inside braces. split by '|' and keep th elasst element
+        2. remove all non alphanumeric char  
+        3. stopwords removal
+        4. stemming
+
+        5. dates
+        6. {{....}} or [[....]] inside this not necessary except last on splitting with '|'
+        '''
+        stop_words = set(stopwords.words('english'))
+        preprocessed_text = ''.join(ch if ch.isalnum() else ' ' for ch in text)
+        preprocessed_text = preprocessed_text.split()
+        preprocessed_text = [w for w in preprocessed_text if w not in stop_words]
+        stemmer = Stemmer.Stemmer('english')
+        preprocessed_text = stemmer.stemWords(preprocessed_text)
+
+        return preprocessed_text
+
+
 
 
 class AllTextHandler():
@@ -22,8 +52,10 @@ class AllTextHandler():
         self.flag_links = 0
         self.flag_category = 0
         self.flag = None
+        self.obj_text = TextCleaning()
 
     def text_body_handler(self,text):
+        #text here is an array st that each element is a line form xml file as extracted from sax
         infobox_text = ""
         body_text = ""
         ref_text = ""
@@ -33,6 +65,7 @@ class AllTextHandler():
             # if self.flag_infobox == 0:
             # things to try: 'in', startswith, slicing
             # to handle cases like "== references ==" , "== external links ==" etc
+            # and things like removing {{Infobox....}}, [category...] etc
             if "{{Infobox" in line:
                 # self.init_cases_flag()
                 self.flag_infobox = 1
@@ -75,15 +108,19 @@ class AllTextHandler():
                     
 
 
-            # else:
-            #     categorized_text = ""
+        infobox_text = self.obj_text.preprocess(infobox_text.lower())
+        body_text = self.obj_text.preprocess(body_text.lower())
+        cat_text = self.obj_text.preprocess(cat_text.lower())
+        # ref_text = self.obj_text.preprocess(ref_text)
+        # link_text = self.obj_text.preprocess(link_text)
+        # infobox_text = self.obj_text.preprocess(infobox_text)
+
             
         return infobox_text,body_text,cat_text,ref_text,link_text   
 
 
 
-# class TextCleaning():
-    # def __init__(self):
+
         
     
 
@@ -98,7 +135,8 @@ class ArticleHandler(xml.sax.ContentHandler):
         self._current_tag = None
         self._pages = []
         self.doc_count = 0
-        self.obj = AllTextHandler()
+        self.obj_for_fields = AllTextHandler()
+        
 
     def characters(self, content):
         """Characters between opening and closing tags"""
@@ -107,13 +145,14 @@ class ArticleHandler(xml.sax.ContentHandler):
 
     def startElement(self, name, attrs):
         """Opening tag of element"""
-        # if (name == "page"):
+        if (name == "page"):
+            self.title = self.infobox = self.body = self.category = self.references = self.links = ""
+
             
         if name in ('title', 'text'):
             self._current_tag = name
             self._buffer = []
-            self.obj.__init__()
-            self.title = self.infobox = self.body = self.category = self.references = self.links = ""
+            self.obj_for_fields.__init__()
 
 
     def endElement(self, name):
@@ -126,7 +165,7 @@ class ArticleHandler(xml.sax.ContentHandler):
 
         if name == "text":
 
-            self.infobox,self.body,self.category,self.references,self.links = self.obj.text_body_handler(self._buffer)
+            self.infobox,self.body,self.category,self.references,self.links = self.obj_for_fields.text_body_handler(self._buffer)
             
             # print(infobox)
         
