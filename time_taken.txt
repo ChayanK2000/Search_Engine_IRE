@@ -1,0 +1,4 @@
+Documents: 20
+Size: 83227 Bytes
+Time taken: 0.07269525527954102 seconds
+Estimated time for whole document: 1271.8887335892052
