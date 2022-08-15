@@ -31,6 +31,12 @@ class Index():
         self.vocab = set()
 
     def create_field_index(self, words_as_list, identity):
+        '''
+        * following SPIMI algo
+        https://www.youtube.com/watch?v=uXq4aq51eKE
+
+
+        '''
         # global doc_count
 
         # dict are copied by address hence changes are refelcted across. but then both affect each other. hence deepcopy could be used but fir using that is basically iterating through the whole dict.
@@ -107,9 +113,9 @@ class Index():
             final_index[word] += posting_data
 
         if doc_count % 30000 == 0:
-            
+            temp_index_map = sorted(final_index.items())
             temp_index = []
-            for word, posting in tqdm(final_index.items()):
+            for word, posting in tqdm(temp_index_map):
                 temp_index.append(word+'-'+posting)
 
             with open(f'./output/index_postings_{file_number}.txt', 'w') as f:
