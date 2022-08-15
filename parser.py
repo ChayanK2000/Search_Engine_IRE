@@ -47,9 +47,13 @@ class TextCleaning():
             if ch.isalnum():
                 str += ch
             else:
-                if str not in stop_words:
+                if ((str not in stop_words) and (str != "")):
                     final_text.append(str)
                 str = ""
+
+        #following if to handle case where last word is legit but was not added in loop
+        if ((str not in stop_words) and (str != "")):
+            final_text.append(str)
 
         final_text = stemmer.stemWords(final_text)
         # preprocessed_text = [w for w in preprocessed_text if w not in stop_words]
