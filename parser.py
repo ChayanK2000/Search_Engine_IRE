@@ -2,10 +2,20 @@
 # import subprocess
 
 import os
+from random import sample
+import sys
 import xml.sax
 import time
 from nltk.corpus import stopwords
 import Stemmer
+from nltk.stem.snowball import SnowballStemmer
+
+# class Index():
+#     def __init__(self):
+#         self.index_dict = {}
+#     def create_index(self,words_as_list):
+#         for word in words_as_list:
+#             if word not in self.index_dict:
 
 class TextCleaning():
     # def __init__(self):
@@ -25,13 +35,32 @@ class TextCleaning():
         6. {{....}} or [[....]] inside this not necessary except last on splitting with '|'
         '''
         stop_words = set(stopwords.words('english'))
-        preprocessed_text = ''.join(ch if ch.isalnum() else ' ' for ch in text)
-        preprocessed_text = preprocessed_text.split()
-        preprocessed_text = [w for w in preprocessed_text if w not in stop_words]
+        # preprocessed_text = ''.join(ch if ch.isalnum() else ' ' for ch in text)
+        # preprocessed_text = preprocessed_text.split()
+        str = ""
+        final_text = []
         stemmer = Stemmer.Stemmer('english')
-        preprocessed_text = stemmer.stemWords(preprocessed_text)
 
-        return preprocessed_text
+        # stemmer = SnowballStemmer(language='english')
+
+        for ch in text:
+            if ch.isalnum():
+                str += ch
+            else:
+                if str not in stop_words:
+                    final_text.append(str)
+                str = ""
+
+        final_text = stemmer.stemWords(final_text)
+        # preprocessed_text = [w for w in preprocessed_text if w not in stop_words]
+        # preprocessed_text = [stemmer.stem(w) for w in preprocessed_text]
+        # for w in preprocessed_text:
+        #     if w not in stop_words:
+        #         final_text.append(stemmer.stem(w))
+        
+        # del preprocessed_text
+
+        return final_text
 
 
 
@@ -54,7 +83,7 @@ class AllTextHandler():
         self.flag = None
         self.obj_text = TextCleaning()
 
-    def text_body_handler(self,text):
+    def text_body_handler(self,title,text):
         #text here is an array st that each element is a line form xml file as extracted from sax
         infobox_text = ""
         body_text = ""
@@ -107,7 +136,7 @@ class AllTextHandler():
 
                     
 
-
+        title_text = self.obj_text.preprocess(title.lower())
         infobox_text = self.obj_text.preprocess(infobox_text.lower())
         body_text = self.obj_text.preprocess(body_text.lower())
         cat_text = self.obj_text.preprocess(cat_text.lower())
@@ -116,7 +145,7 @@ class AllTextHandler():
         # infobox_text = self.obj_text.preprocess(infobox_text)
 
             
-        return infobox_text,body_text,cat_text,ref_text,link_text   
+        return title_text,infobox_text,body_text,cat_text,ref_text,link_text   
 
 
 
@@ -136,6 +165,8 @@ class ArticleHandler(xml.sax.ContentHandler):
         self._pages = []
         self.doc_count = 0
         self.obj_for_fields = AllTextHandler()
+        # self.obj_for_index = Index()
+        
         
 
     def characters(self, content):
@@ -165,7 +196,7 @@ class ArticleHandler(xml.sax.ContentHandler):
 
         if name == "text":
 
-            self.infobox,self.body,self.category,self.references,self.links = self.obj_for_fields.text_body_handler(self._buffer)
+            self.title,self.infobox,self.body,self.category,self.references,self.links = self.obj_for_fields.text_body_handler(self.title,self._buffer)
             
             # print(infobox)
         
@@ -173,12 +204,15 @@ class ArticleHandler(xml.sax.ContentHandler):
         if name == 'page':
             self.doc_count += 1
             print(f"-- Document {self.doc_count} done--")
-            print("Title: ",self.title)
-            print("Infobox:",self.infobox)
-            print("Body: ",self.body)
-            print("Category: ",self.category)
-            print("Ref:",self.references)
-            print("Links:",self.links)
+            # print("Title: ",self.title)
+            # print("Infobox:",self.infobox)
+            # print("Body: ",self.body)
+            # print("Category: ",self.category)
+            # print("Ref:",self.references)
+            # print("Links:",self.links)
+            # self.obj_for_index.create_index()
+
+
 
 
 
@@ -198,10 +232,13 @@ start = time.time()
 handler = ArticleHandler()
 parser = xml.sax.make_parser()
 parser.setContentHandler(handler)
+
+sample_file = sys.argv[1]
+# data_file = sys.argv[2]
 # for line in subprocess.Popen(['bzcat'], stdin = open('sample.xml'), stdout = subprocess.PIPE).stdout:
 #     parser.feed(line)
-parser.parse(open('sample','r'))
-sample_file_stats = os.stat('sample')
+parser.parse(open(sample_file,'r'))
+sample_file_stats = os.stat(sample_file)
 data_size = 1456153957
 end = time.time()
 with open('time_taken.txt','w') as time_file:
