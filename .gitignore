@@ -2,3 +2,4 @@ enwiki*
 data
 sample*
 __pycache__/
+output/
