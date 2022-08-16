@@ -12,12 +12,24 @@ from nltk.stem.snowball import SnowballStemmer
 from tqdm import tqdm
 import copy
 
-# doc_count = 0
+global final_index
+global file_number
+global doc_count
+doc_count = 0
 final_index = defaultdict(str) # to escape key error in line 107
-file_number = 1
+file_number = 0
+# global pre_ind_vocab
+# global vocab_ind
+# pre_ind_vocab = set()
+# vocab_ind = set()
+global pre_ind_vocab_len
+global vocab_ind_len
+pre_ind_vocab_len = 0
+vocab_ind_len = 0
 
 
 class Index():
+    
     def __init__(self):
         # defaultdcit instead of {} to automatically handle missing keys for code in lines 73 onwards
         self.title_dict = defaultdict(int)
@@ -30,6 +42,25 @@ class Index():
         # self.final_index = {}
         self.vocab = set()
 
+
+    def write_inter_index(self):
+        global final_index
+        global file_number
+        # print("eneterd")
+        
+
+        # for i,j in final_index.items():
+        #     print(i,j,"yo")
+
+        # print("xo",file_number)
+        temp_index_map = sorted(final_index.items())
+        temp_index = []
+        for word, posting in temp_index_map:
+            temp_index.append(word+'-'+posting)
+
+        with open(f'./output/index_postings_{file_number}.txt', 'w') as f:
+            f.write('\n'.join(temp_index))
+
     def create_field_index(self, words_as_list, identity):
         '''
         * following SPIMI algo
@@ -40,7 +71,7 @@ class Index():
         # global doc_count
 
         # dict are copied by address hence changes are refelcted across. but then both affect each other. hence deepcopy could be used but fir using that is basically iterating through the whole dict.
-
+        # global vocab_ind
         self.index_dict = defaultdict(int)
         self.vocab.update(words_as_list)
         for word in words_as_list:
@@ -86,8 +117,11 @@ class Index():
         global doc_count
         global final_index
         global file_number
+        # global vocab_ind_len
+
 
         for word in self.vocab:
+            # vocab_ind_len += 1
             posting_data = str(doc_count)+":"
 
             if self.title_dict[word]:
@@ -112,14 +146,10 @@ class Index():
 
             final_index[word] += posting_data
 
-        if doc_count % 30000 == 0:
-            temp_index_map = sorted(final_index.items())
-            temp_index = []
-            for word, posting in tqdm(temp_index_map):
-                temp_index.append(word+'-'+posting)
 
-            with open(f'./output/index_postings_{file_number}.txt', 'w') as f:
-                f.write('\n'.join(temp_index))
+
+        if doc_count % 30000== 0:
+            self.write_inter_index()
 
             file_number += 1
             final_index = defaultdict(str)
@@ -151,8 +181,12 @@ class TextCleaning():
         str = ""
         final_text = []
 
+        global pre_ind_vocab_len
+
         global stemmer
         global stop_words
+
+        pre_ind_vocab_len += len(text.split())
         for ch in text:
             if ch.isalpha():
                 str += ch
@@ -241,9 +275,8 @@ class AllTextHandler():
         infobox_text = self.obj_text.preprocess(infobox_text.lower())
         body_text = self.obj_text.preprocess(body_text.lower())
         cat_text = self.obj_text.preprocess(cat_text.lower())
-        # ref_text = self.obj_text.preprocess(ref_text)
-        # link_text = self.obj_text.preprocess(link_text)
-        # infobox_text = self.obj_text.preprocess(infobox_text)
+        ref_text = self.obj_text.preprocess(ref_text.lower())
+        link_text = self.obj_text.preprocess(link_text.lower())
 
         return title_text, infobox_text, body_text, cat_text, ref_text, link_text
 
@@ -313,25 +346,61 @@ class ArticleHandler(xml.sax.ContentHandler):
             # print("Ref:",self.references)
             # print("Links:",self.links)
             # self.obj_for_index.create_index()
+        
+        if name == 'mediawiki':
+            self.obj_for_index.write_inter_index()
 
 
-# if __name__ == "__main__":
-start = time.time()
-handler = ArticleHandler()
-parser = xml.sax.make_parser()
-parser.setContentHandler(handler)
+if __name__ == "__main__":
 
-sample_file = sys.argv[1]
-# data_file = sys.argv[2]
-# for line in subprocess.Popen(['bzcat'], stdin = open('sample.xml'), stdout = subprocess.PIPE).stdout:
-#     parser.feed(line)
-parser.parse(open(sample_file, 'r'))
-sample_file_stats = os.stat(sample_file)
-data_size = 1456153957
-end = time.time()
-with open('time_taken.txt', 'w') as time_file:
-    time_file.write(f"Documents: {doc_count}\n")
-    time_file.write(f"Size: {sample_file_stats.st_size} Bytes\n")
-    time_file.write(f"Time taken: {end-start} seconds\n")
-    time_file.write("Estimated time for whole document: " +
-                    str((data_size/sample_file_stats.st_size)*(end-start)))
+    start = time.time()
+    handler = ArticleHandler()
+    parser = xml.sax.make_parser()
+    parser.setContentHandler(handler)
+
+    # we write one more time so that last file is also wirtten.
+    # obj_for_index.write_inter_index()
+
+
+    sample_file = sys.argv[1]
+    # data_file = sys.argv[2]
+    # for line in subprocess.Popen(['bzcat'], stdin = open('sample.xml'), stdout = subprocess.PIPE).stdout:
+    #     parser.feed(line)
+    parser.parse(open(sample_file, 'r'))
+    sample_file_stats = os.stat(sample_file)
+    data_size = 1456153957
+
+    path_inv_index = sys.argv[2]
+
+
+    
+
+    with open(path_inv_index,'a') as f:
+        for i in range(file_number+1):
+            data =""
+            with open(f'./output/index_postings_{i}.txt','r') as f1:
+                data = f1.readlines()
+
+            vocab_ind_len += len(data)
+            f.write(''.join(data))
+
+    with open('invertedindex_stat.txt','w') as f:
+        f.write(str(pre_ind_vocab_len)+"\n"+str(vocab_ind_len))
+
+    stat_file = sys.argv[3]
+
+    with open(stat_file,'r') as f:
+        yoyo = f.readlines()
+        print(yoyo)
+
+
+
+
+
+    end = time.time()
+    with open('time_taken.txt', 'w') as time_file:
+        time_file.write(f"Documents: {doc_count}\n")
+        time_file.write(f"Size: {sample_file_stats.st_size} Bytes\n")
+        time_file.write(f"Time taken: {end-start} seconds\n")
+        time_file.write("Estimated time for whole document: " +
+                        str((data_size/sample_file_stats.st_size)*(end-start)))
