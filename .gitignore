@@ -2,7 +2,11 @@ enwiki*
 data
 sample*
 __pycache__/
-output/
+output*/
 inv*
 abc*
 prac.py
+stat*
+*.sh
+*.zip
+2019114008/

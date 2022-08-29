@@ -11,6 +11,8 @@ import Stemmer
 from nltk.stem.snowball import SnowballStemmer
 from tqdm import tqdm
 import copy
+import pathlib
+import re
 
 global final_index
 global file_number
@@ -58,7 +60,7 @@ class Index():
         for word, posting in temp_index_map:
             temp_index.append(word+'-'+posting)
 
-        with open(f'./output/index_postings_{file_number}.txt', 'w') as f:
+        with open(f'./output_intermed/index_postings_{file_number}.txt', 'w') as f:
             f.write('\n'.join(temp_index))
 
     def create_field_index(self, words_as_list, identity):
@@ -72,31 +74,31 @@ class Index():
 
         # dict are copied by address hence changes are refelcted across. but then both affect each other. hence deepcopy could be used but fir using that is basically iterating through the whole dict.
         # global vocab_ind
-        self.index_dict = defaultdict(int)
+        self.temp_index_dict = defaultdict(int)
         self.vocab.update(words_as_list)
         for word in words_as_list:
-            if word not in self.index_dict:
-                self.index_dict[word] = 1
+            if word not in self.temp_index_dict:
+                self.temp_index_dict[word] = 1
             else:
-                self.index_dict[word] += 1
+                self.temp_index_dict[word] += 1
 
         if identity == "t":
-            self.title_dict = copy.deepcopy(self.index_dict)
+            self.title_dict = copy.deepcopy(self.temp_index_dict)
 
         elif identity == "i":
-            self.infobox_dict = copy.deepcopy(self.index_dict)
+            self.infobox_dict = copy.deepcopy(self.temp_index_dict)
 
         elif identity == "b":
-            self.body_dict = copy.deepcopy(self.index_dict)
+            self.body_dict = copy.deepcopy(self.temp_index_dict)
 
         elif identity == "r":
-            self.references_dict = copy.deepcopy(self.index_dict)
+            self.references_dict = copy.deepcopy(self.temp_index_dict)
 
         elif identity == "c":
-            self.category_dict = copy.deepcopy(self.index_dict)
+            self.category_dict = copy.deepcopy(self.temp_index_dict)
 
         elif identity == "l":
-            self.link_dict = copy.deepcopy(self.index_dict)
+            self.link_dict = copy.deepcopy(self.temp_index_dict)
 
         # print("title:")
         # for i, j in self.title_dict.items():
@@ -174,12 +176,13 @@ class TextCleaning():
         4. stemming
 
         5. dates
-        6. {{....}} or [[....]] inside this not necessary except last on splitting with '|'
+        6. {{....}} or [[....]] inside this not necessary except last on splitting with '|' or ' '
         '''
 
         # preprocessed_text = preprocessed_text.split()
-        str = ""
+        str = []
         final_text = []
+        # word = ""
 
         global pre_ind_vocab_len
 
@@ -187,17 +190,20 @@ class TextCleaning():
         global stop_words
 
         pre_ind_vocab_len += len(text.split())
+        # text = re.sub('\{.*?\}|\[.*?\]|\=\=.*?\=\=', ' ', text)
         for ch in text:
-            if ch.isalpha():
-                str += ch
+            if ((ch.isalpha()) and (ord(ch)<128)):
+                str.append(ch)
             else:
-                if ((str not in stop_words) and (str != "")):
-                    final_text.append(str)
-                str = ""
+                word = ''.join(str)
+                if ((word not in stop_words) and (word != "")):
+                    final_text.append(word)
+                str = []
 
         # following if to handle case where last word is legit but was not added in loop
-        if ((str not in stop_words) and (str != "")):
-            final_text.append(str)
+        word = ''.join(str)
+        if ((word not in stop_words) and (word != "")):
+            final_text.append(word)
 
         final_text = stemmer.stemWords(final_text)
 
@@ -238,19 +244,28 @@ class AllTextHandler():
                 self.flag_infobox = 1
                 self.flag = "infobox"
 
-            if("==References==" in line):
+            if(("==References" in line)or("== References") in line):
+            # if((line[:12] == "==References") or (line[:13] == "== References")):
+
                 self.flag_references = 1
                 self.flag = "ref"
+                continue
 
-            if("==External Links==" in line):
+            if(("==External links" in line) or ("== External links" in line)):
+            # if((line[:16] == "==External links") or (line[:17] == "== External links")):
+
                 self.flag_links = 1
                 self.flag = "links"
+                continue
 
             if("[[Category" in line):
                 self.flag_category = 1
                 self.flag = "cat"
 
+            
+            #though changinfg the loop var 'line' not a good practice but oesnt do any harm in python for loop usually
             if(self.flag == "infobox"):
+                line = line.replace("{{Infobox"," ")
                 infobox_text = infobox_text + line
                 if(line == "}}"):
                     self.flag_infobox = 1
@@ -263,12 +278,25 @@ class AllTextHandler():
                 body_text = body_text + line
 
             if(self.flag == "ref"):
-                ref_text = ref_text + line
+                # ref_text = ref_text + line
+                if(line[0] == '*'):
+                    line = line.split()
+                    line = ' '.join(line[1:])
+               
+                    ref_text = ''.join((ref_text,line,"\n"))
+
 
             if(self.flag == "links"):
-                link_text = link_text + line
+                # link_text = link_text + line
+                if(line[0] == '*'):
+                    line = line.split()
+
+                    line = [w for w in line if "http" not in w]
+                    line = ' '.join(line)
+                    link_text = ''.join((link_text,line,"\n"))
 
             if(self.flag == "cat"):
+                line = line.replace("[[Category"," ")
                 cat_text = cat_text + line
 
         title_text = self.obj_text.preprocess(title.lower())
@@ -354,6 +382,8 @@ class ArticleHandler(xml.sax.ContentHandler):
 if __name__ == "__main__":
 
     start = time.time()
+    pathlib.Path("./output_intermed").mkdir(parents=True, exist_ok=True)
+
     handler = ArticleHandler()
     parser = xml.sax.make_parser()
     parser.setContentHandler(handler)
@@ -362,36 +392,35 @@ if __name__ == "__main__":
     # obj_for_index.write_inter_index()
 
 
-    sample_file = sys.argv[1]
-    # data_file = sys.argv[2]
+    input_file = sys.argv[1]
     # for line in subprocess.Popen(['bzcat'], stdin = open('sample.xml'), stdout = subprocess.PIPE).stdout:
     #     parser.feed(line)
-    parser.parse(open(sample_file, 'r'))
-    sample_file_stats = os.stat(sample_file)
+    parser.parse(open(input_file, 'r'))
+    sample_file_stats = os.stat(input_file)
     data_size = 1456153957
 
     path_inv_index = sys.argv[2]
+    stat_file = sys.argv[3]
 
 
     
 
-    with open(path_inv_index,'a') as f:
+    with open(path_inv_index,'w') as f:
         for i in range(file_number+1):
             data =""
-            with open(f'./output/index_postings_{i}.txt','r') as f1:
+            with open(f'./output_intermed/index_postings_{i}.txt','r') as f1:
                 data = f1.readlines()
 
             vocab_ind_len += len(data)
             f.write(''.join(data))
 
-    with open('invertedindex_stat.txt','w') as f:
+    with open(stat_file,'w') as f:
         f.write(str(pre_ind_vocab_len)+"\n"+str(vocab_ind_len))
 
-    stat_file = sys.argv[3]
 
-    with open(stat_file,'r') as f:
-        yoyo = f.readlines()
-        print(yoyo)
+    # with open(stat_file,'r') as f:
+    #     yoyo = f.readlines()
+    #     print(yoyo)
 
 
 
