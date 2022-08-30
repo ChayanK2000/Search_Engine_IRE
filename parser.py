@@ -4,6 +4,7 @@
 from collections import defaultdict
 import os
 import sys
+from typing import final
 import xml.sax
 import time
 from nltk.corpus import stopwords
@@ -16,10 +17,12 @@ import re
 
 global final_index
 global file_number
+global final_file_number
 global doc_count
 doc_count = 0
-final_index = defaultdict(str) # to escape key error in line 107
+final_index = defaultdict(str) # to escape key error 
 file_number = 0
+final_file_number = 0
 # global pre_ind_vocab
 # global vocab_ind
 # pre_ind_vocab = set()
@@ -30,10 +33,90 @@ pre_ind_vocab_len = 0
 vocab_ind_len = 0
 
 
+
+class Merge():
+    def __init__(self):
+        global file_number
+        self.num_unique_words_in_final_indexes = 0
+        self.num_empty_files = 0
+        self.f = {}
+        self.topmost_line = {}
+        self.word_and_postings_of_topmost_line = {}
+        self.list_of_words_from_topmost_lines_of_all_files = []
+        self.num_files = file_number+1
+        self.num_files_list = list(range(self.num_files))
+        self.final_data = defaultdict(str)
+
+
+    def write_final_files(self,final_data):
+        global final_file_number
+
+        temp_index = []
+        for word, posting in final_data.items():
+            temp_index.append(word+'-'+posting)
+        with open(f'./output_final/index_postings_{final_file_number}.txt', 'w') as f:
+            f.write('\n'.join(temp_index))
+
+        final_file_number += 1
+
+
+    def merge_intermediate_indexes(self):
+
+        
+        for i in self.num_files_list:
+            self.f[i] = open(f'output_intermed/index_postings_{i}.txt','r')
+            self.topmost_line[i] = self.f[i].readline().strip("\n")
+            self.word_and_postings_of_topmost_line[i] = self.topmost_line[i].split('-')
+            if self.word_and_postings_of_topmost_line[i][0] not in self.list_of_words_from_topmost_lines_of_all_files:
+                self.list_of_words_from_topmost_lines_of_all_files.append(self.word_and_postings_of_topmost_line[i][0])
+
+            # i += 1
+
+
+        
+
+        while(self.num_empty_files<self.num_files):
+
+            self.list_of_words_from_topmost_lines_of_all_files = sorted(self.list_of_words_from_topmost_lines_of_all_files)
+
+            self.lexi_smallest_token = self.list_of_words_from_topmost_lines_of_all_files.pop(0)
+            self.num_unique_words_in_final_indexes += 1
+
+
+            if self.num_unique_words_in_final_indexes % 50000 == 0:
+                self.write_final_files(self.final_data)
+                self.final_data = defaultdict(str)
+
+            for i in range(self.num_files):
+                if i not in self.num_files_list:
+                    continue
+
+
+                if(self.word_and_postings_of_topmost_line[i][0] == self.lexi_smallest_token):
+                    self.final_data[self.lexi_smallest_token] += self.word_and_postings_of_topmost_line[i][1]
+
+                    self.topmost_line[i] = self.f[i].readline().strip("\n")
+                    if not self.topmost_line[i]:
+                        self.num_files_list.remove(i)
+                        self.num_empty_files += 1
+                        self.f[i].close()
+                        continue
+
+                    self.word_and_postings_of_topmost_line[i] = self.topmost_line[i].split('-')
+                    if self.word_and_postings_of_topmost_line[i][0] not in self.list_of_words_from_topmost_lines_of_all_files:
+
+                        self.list_of_words_from_topmost_lines_of_all_files.append(self.word_and_postings_of_topmost_line[i][0])
+        
+        self.write_final_files(self.final_data)
+
+        return self.num_unique_words_in_final_indexes
+
+   
+
 class Index():
     
     def __init__(self):
-        # defaultdcit instead of {} to automatically handle missing keys for code in lines 73 onwards
+        # defaultdcit instead of {} to automatically handle missing keys
         self.title_dict = defaultdict(int)
         self.infobox_dict = defaultdict(int)
         self.body_dict = defaultdict(int)
@@ -383,6 +466,8 @@ if __name__ == "__main__":
 
     start = time.time()
     pathlib.Path("./output_intermed").mkdir(parents=True, exist_ok=True)
+    pathlib.Path("./output_final").mkdir(parents=True, exist_ok=True)
+
 
     handler = ArticleHandler()
     parser = xml.sax.make_parser()
@@ -396,23 +481,28 @@ if __name__ == "__main__":
     # for line in subprocess.Popen(['bzcat'], stdin = open('sample.xml'), stdout = subprocess.PIPE).stdout:
     #     parser.feed(line)
     parser.parse(open(input_file, 'r'))
+
+
+    merge_obj = Merge()
+    final_unique_words = merge_obj.merge_intermediate_indexes()
+
     sample_file_stats = os.stat(input_file)
     data_size = 1456153957
 
     path_inv_index = sys.argv[2]
     stat_file = sys.argv[3]
 
-
+    
     
 
-    with open(path_inv_index,'w') as f:
-        for i in range(file_number+1):
-            data =""
-            with open(f'./output_intermed/index_postings_{i}.txt','r') as f1:
-                data = f1.readlines()
+    # with open(path_inv_index,'w') as f:
+    #     for i in range(file_number+1):
+    #         data =""
+    #         with open(f'./output_intermed/index_postings_{i}.txt','r') as f1:
+    #             data = f1.readlines()
 
-            vocab_ind_len += len(data)
-            f.write(''.join(data))
+    #         vocab_ind_len += len(data)
+    #         f.write(''.join(data))
 
     with open(stat_file,'w') as f:
         f.write(str(pre_ind_vocab_len)+"\n"+str(vocab_ind_len))
