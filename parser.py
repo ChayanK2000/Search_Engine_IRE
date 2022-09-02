@@ -1,6 +1,3 @@
-# from asyncio import subprocess
-# import subprocess
-
 from collections import defaultdict
 import os
 import sys
@@ -16,8 +13,8 @@ import pathlib
 import re
 
 global final_index
-global file_number
-global final_file_number
+global file_number # file nos for interd index files
+global final_file_number #file nos for final merged files
 global doc_count
 doc_count = 0
 final_index = defaultdict(str) # to escape key error 
@@ -31,6 +28,18 @@ global pre_ind_vocab_len
 global vocab_ind_len
 pre_ind_vocab_len = 0
 vocab_ind_len = 0
+global secondary_index_list
+secondary_index_list = []
+
+# global secondary_title_list
+# secondary_title_list = []
+
+global file_number_for_title
+file_number_for_title = 0
+
+# id_title_map = {}
+
+title_list = []
 
 
 
@@ -50,9 +59,12 @@ class Merge():
 
     def write_final_files(self,final_data):
         global final_file_number
-
+        global secondary_index_list
         temp_index = []
-        for word, posting in final_data.items():
+        for i,(word, posting) in enumerate(final_data.items()):
+            if i==0:
+                secondary_index_list.append(word)
+
             temp_index.append(word+'-'+posting)
         with open(f'./output_final/index_postings_{final_file_number}.txt', 'w') as f:
             f.write('\n'.join(temp_index))
@@ -83,9 +95,9 @@ class Merge():
             self.num_unique_words_in_final_indexes += 1
 
 
-            if self.num_unique_words_in_final_indexes % 50000 == 0:
-                self.write_final_files(self.final_data)
-                self.final_data = defaultdict(str)
+            # if self.num_unique_words_in_final_indexes % 50000 == 0:
+            #     self.write_final_files(self.final_data)
+            #     self.final_data = defaultdict(str)
 
             for i in range(self.num_files):
                 if i not in self.num_files_list:
@@ -106,6 +118,11 @@ class Merge():
                     if self.word_and_postings_of_topmost_line[i][0] not in self.list_of_words_from_topmost_lines_of_all_files:
 
                         self.list_of_words_from_topmost_lines_of_all_files.append(self.word_and_postings_of_topmost_line[i][0])
+
+            
+            if self.num_unique_words_in_final_indexes % 50000 == 0:
+                self.write_final_files(self.final_data)
+                self.final_data = defaultdict(str)
         
         self.write_final_files(self.final_data)
 
@@ -183,22 +200,8 @@ class Index():
         elif identity == "l":
             self.link_dict = copy.deepcopy(self.temp_index_dict)
 
-        # print("title:")
-        # for i, j in self.title_dict.items():
-        #     print(i, j)
-        # print("info:")
 
-        # for i, j in self.infobox_dict.items():
-        #     print(i, j)
-        # print("body:")
-
-        # for i, j in self.body_dict.items():
-        #     print(i, j)
-
-        # for i,j in self.title_dict.items():
-        #     print(i,j)
-
-    def create_final_index(self):
+    def create_intermed_index(self):
         global doc_count
         global final_index
         global file_number
@@ -238,6 +241,8 @@ class Index():
 
             file_number += 1
             final_index = defaultdict(str)
+
+        
 
 
 class TextCleaning():
@@ -426,11 +431,25 @@ class ArticleHandler(xml.sax.ContentHandler):
 
     def endElement(self, name):
         global doc_count
+        global title_list
+        global file_number_for_title
+
         """Closing tag of element"""
         # if name == self._current_tag:
         #     self._values[name] = ''.join(self._buffer)
         if name == 'title':
             self.title = ''.join(self._buffer)
+            # global id_title_map
+            # id_title_map[doc_count] = self.title
+            title_list.append(str(doc_count)+":"+self.title)
+            if doc_count % 1000 == 0:
+                with open(f"output_final/id_title_{file_number_for_title}.txt",'w') as f_id:
+                    
+                    f_id.write("\n".join(title_list))
+                    title_list = []
+                    file_number_for_title += 1
+
+
 
         if name == "text":
 
@@ -444,7 +463,7 @@ class ArticleHandler(xml.sax.ContentHandler):
             self.obj_for_index.create_field_index(self.references, 'r')
             self.obj_for_index.create_field_index(self.links, 'l')
 
-            self.obj_for_index.create_final_index()
+            self.obj_for_index.create_intermed_index()
 
             # print(infobox)
 
@@ -459,7 +478,12 @@ class ArticleHandler(xml.sax.ContentHandler):
             # self.obj_for_index.create_index()
         
         if name == 'mediawiki':
-            self.obj_for_index.write_inter_index()
+            self.obj_for_index.write_inter_index() #so that the last part is also written.
+            with open(f"output_final/id_title_{file_number_for_title}.txt",'w') as f_id:
+                    
+                f_id.write("\n".join(title_list))
+                title_list = []
+                file_number_for_title += 1
 
 
 if __name__ == "__main__":
@@ -485,6 +509,10 @@ if __name__ == "__main__":
 
     merge_obj = Merge()
     final_unique_words = merge_obj.merge_intermediate_indexes()
+
+    with open('output_final/secondary.txt','w') as f:
+        f.write("\n".join(secondary_index_list))
+
 
     sample_file_stats = os.stat(input_file)
     data_size = 1456153957
@@ -513,7 +541,10 @@ if __name__ == "__main__":
     #     print(yoyo)
 
 
-
+    with open('output_final/total_index_pages.txt','w') as f_i:
+        f_i.write(str(final_file_number))
+        # f_i.write(f"\nHence secondary index will have {final_file_number} lines from 0 to {final_file_number -1}")
+        f_i.write("\n"+str(final_unique_words))
 
 
     end = time.time()

@@ -1,4 +1,4 @@
-Documents: 476811
-Size: 1456153957 Bytes
-Time taken: 248.79048943519592 seconds
-Estimated time for whole document: 248.79048943519592
+Documents: 19143
+Size: 61728280 Bytes
+Time taken: 10.867212772369385 seconds
+Estimated time for whole document: 256.3547029019214
