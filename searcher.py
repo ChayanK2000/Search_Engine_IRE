@@ -6,6 +6,7 @@ import time
 import sys
 
 from parser import TextCleaning
+from typing_extensions import final
 
 
 class FileHandler():
@@ -120,7 +121,7 @@ class Ranking():
 
 
     
-    def tf_idf_rank(self,final_postings,final_result):
+    def tf_idf_rank(self,final_postings,final_result,field):
 
 
         
@@ -140,7 +141,8 @@ class Ranking():
                 
                 ascii_val = ord(j)
                 
-                if(48<= ascii_val <=57):
+                
+                if(48<= ascii_val <=57) and ((last_field == field)or(field is None)):
                     val_of_each_tag += j
                 else:
                     if(val_of_each_tag != ""):
@@ -152,12 +154,11 @@ class Ranking():
                     last_field = j
             
             # hte followingl three/four lines just like in various ither parts of code, to take into account the last number/items and add it to freq, which would be missed in for loop
-            if(val_of_each_tag == ""):
-                continue
-            total_freq += (weights[last_field]*int(val_of_each_tag)) #giving weightage to freqeuncey for diff fields
-            val_of_each_tag =""
+            if(val_of_each_tag != ""):
+                total_freq += (weights[last_field]*int(val_of_each_tag)) #giving weightage to freqeuncey for diff fields
+                val_of_each_tag =""
 
-            tf = 1+math.log(total_freq)
+            tf = math.log(1+total_freq)
             idf = math.log(self.N_total_doc/(1+n_no_of_doc_in_which_a_word_appears)) #adding 1 to handle case if no doc is there having that word
             final_result[doc_id] += (tf*idf)
 
@@ -179,38 +180,70 @@ class InputQuery():
 
 
 
-    def search_for_general_query(self,query):
+    def search_for_general_query(self,query,final_result):
         query = query.lower()
         preprocessed_query = self.obj_preprocess.preprocess(query)
 		# page_freq, page_postings = {}, defaultdict(dict)
-        final_result = defaultdict(float)
+        # final_result = defaultdict(float)
 
 
         for word in preprocessed_query:
             # print("entered")
             suffix_of_index_to_look_in = self.obj_file.binary_search_in_secondary_file(word)
             final_postings = self.obj_file.binary_search_in_merged_indexes(word,suffix_of_index_to_look_in)
-            final_results_after_tf_idf = self.obj_ranking.tf_idf_rank(final_postings,final_result)
+            final_result = self.obj_ranking.tf_idf_rank(final_postings,final_result,None)
 
-            final_results_sorted = sorted(final_results_after_tf_idf.items(), key = lambda item : item[1], reverse=True)
-            final_results_sorted = final_results_sorted[:10]
-            # print("sorted list is:" )
-            # print(final_results_sorted)
-        print("--------------")
-        final_title_list = []
-        for id,value_for_that_id in final_results_sorted:
-            final_title_list.append(self.obj_file.binary_search_for_title(id))
+        #     final_results_sorted = sorted(final_results_after_tf_idf.items(), key = lambda item : item[1], reverse=True)
+        #     final_results_sorted = final_results_sorted[:10]
+        #     # print("sorted list is:" )
+        #     # print(final_results_sorted)
+        # print("--------------")
+        # # final_title_list = []
+        # for id,value_for_that_id in final_results_sorted:
+        #     final_title_list.append(self.obj_file.binary_search_for_title(id))
         
 
-        print(final_title_list)
+        # print(final_title_list)
+        return final_result
 
 
 
 
+    def search_for_field(self,list_of_field_queries,final_result):
+        # final_result = defaultdict(float)
+        
+        for query in list_of_field_queries:
+            field = query[0]
+            query = query.lower()
+            preprocessed_query = self.obj_preprocess.preprocess(query[2:])
+            for word in preprocessed_query:
+                suffix_of_index_to_look_in = self.obj_file.binary_search_in_secondary_file(word)
+                final_postings = self.obj_file.binary_search_in_merged_indexes(word,suffix_of_index_to_look_in)
+                final_result = self.obj_ranking.tf_idf_rank(final_postings,final_result,field)
+        #         final_results_sorted = sorted(final_results_after_tf_idf.items(), key = lambda item : item[1], reverse=True)
+        #         final_results_sorted = final_results_sorted[:10]
+        #     # print("sorted list is:" )
+        #     # print(final_results_sorted)
+        # print("--------------")
+        # # final_title_list = []
+        # for id,value_for_that_id in final_results_sorted:
+        #     final_title_list.append(self.obj_file.binary_search_for_title(id))
+        
+
+        # print(final_title_list)
+
+        return final_result
 
 
 
-    def type_of_query(self,query_per_line):
+    def search_for_both(self,gen_query,list_of_field_queries,final_result):
+        final_result = self.search_for_general_query(gen_query,final_result)
+        final_result = self.search_for_field(list_of_field_queries,final_result)
+        return final_result
+
+
+
+    def type_of_query(self,query_per_line,final_result):
         
         fields_tags_list = ["t:","b:","i:","c:","r:","l:"]
         field_flag = 0
@@ -220,27 +253,50 @@ class InputQuery():
                 query_per_line = query_per_line.replace(tag,"*#"+tag)
                 # print(query_per_line)
         if(field_flag == 0): #when no field query present
-            self.search_for_general_query(query_per_line)
+            final_result = self.search_for_general_query(query_per_line,final_result)
             # print("1")
             # print(query_per_line)
+            # return final_result
 
-        # else:
-        #     queries = query_per_line.split("*#")
-        #     if(query_per_line[0:2] == "*#"): # if query starts with field query then no generla query present
-        #         search_for_field(queries[1:])
-        #         # print("3")
-        #         # print(queries[1:])
+        else:
+            queries = query_per_line.split("*#")
+            if(query_per_line[0:2] == "*#"): # if query starts with field query then no generla query present
+                final_result = self.search_for_field(queries[1:],final_result)
+                print("3")
+                print(queries[1:])
 
 
-        #     else: #when query started with general query but also has field queries later on
-        #         search_for_both(queries[0],queries[1:]) 
-        #         # print("2")
-        #         # print(queries[0],queries[1:])
+            else: #when query started with general query but also has field queries later on
+                final_result = self.search_for_both(queries[0],queries[1:],final_result) 
+                print("2")
+                print(queries[0],queries[1:])
+
+
+        return final_result
+
+    def get_ans(self,final_result):
+        final_results_sorted = sorted(final_result.items(), key = lambda item : item[1], reverse=True)
+        final_results_sorted = final_results_sorted[:10]
+        # print("sorted list is:" )
+        # print(final_results_sorted)
+        print("--------------")
+        final_title_list = []
+        for id,value_for_that_id in final_results_sorted:
+            final_title_list.append(self.obj_file.binary_search_for_title(id))
+
+        print(final_title_list)
+        return final_title_list
+
+
+    def write_ans_to_file(self,final_title_list,time_taken):
+        with open("queries_op.txt",'a') as f_q_op:
+            f_q_op.write(''.join(final_title_list))
+            f_q_op.write(str(time_taken)+"\n\n")
 
 
 
 if __name__ == "__main__":
-    whole_search_start_time = time.time()
+    # whole_search_start_time = time.time()
     # print(parser.final_file_number)
     
     with open('./output_final/misc_info.txt','r') as f_n:
@@ -264,15 +320,22 @@ if __name__ == "__main__":
     
     with open (queries_file,'r') as f_q:
         while(1):
+            start = time.time()
             query_per_line = f_q.readline().strip("\n")
             if not query_per_line:
                 break
-            obj_query.type_of_query(query_per_line)
+            final_result = defaultdict(float)
+            # final_title_list = []
+            final_result = obj_query.type_of_query(query_per_line,final_result)
+            final_title_list = obj_query.get_ans(final_result)
+            end = time.time()
+            time_taken = end-start
+            obj_query.write_ans_to_file(final_title_list,time_taken)
             print("------------")
 
-    end = time.time()
+    # end = time.time()
 
-    print("time taken: ",end-whole_search_start_time)
+    # print("time taken: ",end-whole_search_start_time)
 
     
 

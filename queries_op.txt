@@ -1,0 +1,36 @@
+77228:Novak Djokovic
+455379:Toni Nadal
+464741:Federer–Nadal rivalry
+296141:Kitchie Nadal (album)
+412873:2009 ATP World Tour Masters 1000
+387210:Houston–Rice rivalry
+330312:Greater Western Sydney Giants
+373005:Eagles–Giants rivalry
+127273:European Go Federation
+67255:Iowa–Iowa State rivalry
+0.1882784366607666
+
+77228:Novak Djokovic
+412873:2009 ATP World Tour Masters 1000
+34808:Grigory Novak
+37705:Grigori Novak
+132588:Arne Novak
+181776:Aba Novak, Vilmos
+189585:Jan Novak (ice hockey)
+217720:Eva Novak-Gerard
+221899:Jiri Tibor Novak
+233753:Dezsö Novak
+0.0379486083984375
+
+36562:Lalit Modi
+120847:Arnab Goswami
+82828:Modi script
+59115:Sergiy Stakhovsky
+307863:South Carolina Gamecocks women's tennis
+416630:Brazil–India relations
+10555:Oh Sang-eun
+77228:Novak Djokovic
+61607:WTA Austrian Open
+14684:University of Notre Dame residence halls
+0.03500509262084961
+
