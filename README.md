@@ -1,6 +1,6 @@
 # Search_Engine_IRE
 
-to do/points to think
+<!-- to do/points to think
 - remove/ignore words/sentneces not visible in wiki webpage - like things inside double braces(only the last elemnt when split by '|' is meaningful). like for eg, "abc.jpg" is of no use. such are still present in text.
 
 - why spimi - adv and other ways
@@ -15,4 +15,30 @@ to do/points to think
 
 - some has "==References==","== References ==","===External Links===" etc - handled
 
-- to remoove {{commons...}} in ref/links - currently handling this by only accepting those lines starting with '*'
+- to remoove {{commons...}} in ref/links - currently handling this by only accepting those lines starting with '*' -->
+  
+INDEXING:
+- first divided into intermediate indexes
+- applying spimi algo or basically like merging k-sorted arrays, merged all the index files. all these final merged index files are in 'output_final' folder
+- that folder has other files like "id_title" .txt mappign doc id to title. 
+- Though secondary index was created for the merged indexes, it is not necessary for the id-title as one can directly access the fiel no by dividing operator(say if every file has 5L titles, file no can be retrien=ved by (doc_id/5L).ceil -1).txt)
+- total indexing was able to complete withing 270s for the 1.4GB data  
+- 'total_index_pages_doc.txt- : 
+    - no of final index txt files
+    - total no of tokens across all such index files
+    - total no of documents in the dump
+
+SEARCHING:
+- for searching, first we identify what type of query is there:
+    - only general query word
+    - only field query word
+    - general followed by field query
+- thus accordingly binary search is done first on second index and then on the actual file to get the postings.
+- on these postings tf-idf will be applied to get the final results.
+
+
+
+
+-----------
+
+- 'nadal' on 1.4 gb gives djoko as top followed by toni nadal...msotly because lots of 'nadal' in djokovic body....fine tuning of weights will be donel only when all data is indexed...

@@ -20,14 +20,11 @@ doc_count = 0
 final_index = defaultdict(str) # to escape key error 
 file_number = 0
 final_file_number = 0
-# global pre_ind_vocab
-# global vocab_ind
-# pre_ind_vocab = set()
-# vocab_ind = set()
-global pre_ind_vocab_len
-global vocab_ind_len
-pre_ind_vocab_len = 0
-vocab_ind_len = 0
+
+# global pre_ind_vocab_len
+# global vocab_ind_len
+# pre_ind_vocab_len = 0
+# vocab_ind_len = 0
 global secondary_index_list
 secondary_index_list = []
 
@@ -40,6 +37,12 @@ file_number_for_title = 0
 # id_title_map = {}
 
 title_list = []
+
+
+global no_of_titles_in_id_title_txt, no_of_doc_to_make_intermed_index_in_each_file, no_of_words_in_final_index_files
+no_of_titles_in_id_title_txt = 500000
+no_of_doc_to_make_intermed_index_in_each_file = 30000
+no_of_words_in_final_index_files = 100000
 
 
 
@@ -74,7 +77,7 @@ class Merge():
 
     def merge_intermediate_indexes(self):
 
-        
+        global no_of_words_in_final_index_files
         for i in self.num_files_list:
             self.f[i] = open(f'output_intermed/index_postings_{i}.txt','r')
             self.topmost_line[i] = self.f[i].readline().strip("\n")
@@ -120,7 +123,7 @@ class Merge():
                         self.list_of_words_from_topmost_lines_of_all_files.append(self.word_and_postings_of_topmost_line[i][0])
 
             
-            if self.num_unique_words_in_final_indexes % 50000 == 0:
+            if self.num_unique_words_in_final_indexes % no_of_words_in_final_index_files == 0:
                 self.write_final_files(self.final_data)
                 self.final_data = defaultdict(str)
         
@@ -235,8 +238,9 @@ class Index():
             final_index[word] += posting_data
 
 
+        global no_of_doc_to_make_intermed_index_in_each_file
 
-        if doc_count % 30000== 0:
+        if doc_count % no_of_doc_to_make_intermed_index_in_each_file== 0:
             self.write_inter_index()
 
             file_number += 1
@@ -272,12 +276,12 @@ class TextCleaning():
         final_text = []
         # word = ""
 
-        global pre_ind_vocab_len
+        # global pre_ind_vocab_len
 
         global stemmer
         global stop_words
 
-        pre_ind_vocab_len += len(text.split())
+        # pre_ind_vocab_len += len(text.split())
         # text = re.sub('\{.*?\}|\[.*?\]|\=\=.*?\=\=', ' ', text)
         for ch in text:
             if ((ch.isalpha()) and (ord(ch)<128)):
@@ -293,7 +297,12 @@ class TextCleaning():
         if ((word not in stop_words) and (word != "")):
             final_text.append(word)
 
+        # global yoyo
+        # yoyo = final_text
         final_text = stemmer.stemWords(final_text)
+        # if(final_text[0] != 'a'):
+        #     yoyo = final_text[0]
+            
 
         return final_text
 
@@ -442,7 +451,7 @@ class ArticleHandler(xml.sax.ContentHandler):
             # global id_title_map
             # id_title_map[doc_count] = self.title
             title_list.append(str(doc_count)+":"+self.title)
-            if doc_count % 1000 == 0:
+            if doc_count % no_of_titles_in_id_title_txt == 0:
                 with open(f"output_final/id_title_{file_number_for_title}.txt",'w') as f_id:
                     
                     f_id.write("\n".join(title_list))
@@ -521,30 +530,21 @@ if __name__ == "__main__":
     stat_file = sys.argv[3]
 
     
-    
-
-    # with open(path_inv_index,'w') as f:
-    #     for i in range(file_number+1):
-    #         data =""
-    #         with open(f'./output_intermed/index_postings_{i}.txt','r') as f1:
-    #             data = f1.readlines()
-
-    #         vocab_ind_len += len(data)
-    #         f.write(''.join(data))
 
     with open(stat_file,'w') as f:
-        f.write(str(pre_ind_vocab_len)+"\n"+str(vocab_ind_len))
+        f.write(str(final_file_number)+"\n"+str(final_unique_words))
 
 
-    # with open(stat_file,'r') as f:
-    #     yoyo = f.readlines()
-    #     print(yoyo)
 
-
-    with open('output_final/total_index_pages.txt','w') as f_i:
+    with open('output_final/misc_info.txt','w') as f_i:
         f_i.write(str(final_file_number))
         # f_i.write(f"\nHence secondary index will have {final_file_number} lines from 0 to {final_file_number -1}")
         f_i.write("\n"+str(final_unique_words))
+        f_i.write("\n"+str(doc_count))
+        f_i.write("\n"+str(no_of_doc_to_make_intermed_index_in_each_file))
+        f_i.write("\n"+str(no_of_words_in_final_index_files))
+        f_i.write("\n"+str(no_of_titles_in_id_title_txt))
+
 
 
     end = time.time()
